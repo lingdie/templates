@@ -32,7 +32,7 @@ kind: StatefulSet
 metadata:
   name: ${{ defaults.app_name }}
   annotations:
-    originImageName: ghcr.io/teableio/teable:sha-b40d565
+    originImageName: ghcr.io/teableio/teable:1.2.0-beta
     deploy.cloud.sealos.io/minReplicas: '1'
     deploy.cloud.sealos.io/maxReplicas: '1'
   labels:
@@ -55,7 +55,7 @@ spec:
       automountServiceAccountToken: false
       initContainers:
         - name: db-migrate
-          image: ghcr.io/teableio/teable-db-migrate:sha-b40d565
+          image: ghcr.io/teableio/teable-db-migrate:1.2.0-beta
           env:
             - name: TZ
               value: ${{ defaults.time_zone }}
@@ -66,6 +66,8 @@ spec:
                   key: password
             - name: PRISMA_DATABASE_URL
               value: postgresql://postgres:$(PG_PASSWORD)@${{ defaults.app_name }}-pg-postgresql.${{ SEALOS_NAMESPACE }}.svc:5432/teable
+            - name: PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING
+              value: '1'
           resources:
             requests:
               cpu: 100m
@@ -75,7 +77,7 @@ spec:
               memory: 1024Mi
       containers:
         - name: ${{ defaults.app_name }}
-          image: ghcr.io/teableio/teable:sha-b40d565
+          image: ghcr.io/teableio/teable:1.2.0-beta
           env:
             - name: TZ
               value: ${{ defaults.time_zone }}
@@ -90,6 +92,8 @@ spec:
               value: '--max-old-space-size=1024'
             - name: PUBLIC_ORIGIN
               value: https://${{ defaults.app_host }}.${{ SEALOS_CLOUD_DOMAIN }}
+            - name: PUBLIC_DATABASE_PROXY
+              value: ${{ defaults.app_name }}-pg-postgresql.${{ SEALOS_NAMESPACE }}.svc:5432
           resources:
             requests:
               cpu: 200m
@@ -242,93 +246,12 @@ metadata:
   name: ${{ defaults.app_name }}-pg
 rules:
   - apiGroups:
-      - ''
+      - '*'
     resources:
-      - events
+      - '*'
     verbs:
-      - create
-  - apiGroups:
-      - ''
-    resources:
-      - configmaps
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
-  - apiGroups:
-      - ''
-    resources:
-      - endpoints
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
-  - apiGroups:
-      - ''
-    resources:
-      - pods
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - dataprotection.kubeblocks.io
-    resources:
-      - backups
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
-  - apiGroups:
-      - dataprotection.kubeblocks.io
-    resources:
-      - backups/status
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
-  - apiGroups:
-      - dataprotection.kubeblocks.io
-    resources:
-      - backups
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
-  - apiGroups:
-      - dataprotection.kubeblocks.io
-    resources:
-      - backups/status
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
+      - '*'
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -345,7 +268,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: ${{ defaults.app_name }}-pg
-    namespace: ${{ SEALOS_NAMESPACE }}
+
 ---
 apiVersion: batch/v1
 kind: Job
@@ -386,7 +309,5 @@ spec:
     url: https://${{ defaults.app_host }}.${{ SEALOS_CLOUD_DOMAIN }}
   displayType: normal
   icon: "https://framerusercontent.com/images/x9gZmjwbtvaGd95qbfUmsZ8Jc.png"
-  menuData:
-    nameColor: text-black
   name: teable
   type: link

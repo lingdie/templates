@@ -48,6 +48,7 @@ spec:
         app: ${{ defaults.app_name }}
     spec:
       terminationGracePeriodSeconds: 10
+      automountServiceAccountToken: false
       initContainers:
         - name: take-data-dir-ownership
           image: alpine
@@ -166,7 +167,5 @@ spec:
     url: https://${{ defaults.app_host }}.${{ SEALOS_CLOUD_DOMAIN }}
   displayType: normal
   icon: "https://n8n.io/favicon.ico"
-  menuData:
-    nameColor: text-black
   name: ${{ defaults.app_name }}
   type: iframe

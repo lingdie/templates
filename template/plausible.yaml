@@ -114,70 +114,11 @@ metadata:
   name: ${{ defaults.app_name }}-db
 rules:
   - apiGroups:
-      - ''
+      - '*'
     resources:
-      - events
+      - '*'
     verbs:
-      - create
-  - apiGroups:
-      - ''
-    resources:
-      - configmaps
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
-  - apiGroups:
-      - ''
-    resources:
-      - endpoints
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
-  - apiGroups:
-      - ''
-    resources:
-      - pods
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - dataprotection.kubeblocks.io
-    resources:
-      - backups
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
-  - apiGroups:
-      - dataprotection.kubeblocks.io
-    resources:
-      - backups/status
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
-
+      - '*'
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -194,7 +135,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: ${{ defaults.app_name }}-db
-    namespace: ${{ SEALOS_NAMESPACE }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -258,6 +198,7 @@ spec:
       labels:
         app: ${{ defaults.app_name }}-events-db
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: ${{ defaults.app_name }}-events-db
           image: clickhouse/clickhouse-server:23.3.7.5-alpine
@@ -356,6 +297,7 @@ spec:
       labels:
         app: ${{ defaults.app_name }}
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: ${{ defaults.app_name }}
           image: plausible/analytics:v2.0

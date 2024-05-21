@@ -127,9 +127,11 @@ inputs:
 - `${{ SEALOS_NAMESPACE }}` The namespace where Sealos user is deployed.
 - `${{ SEALOS_CLOUD_DOMAIN }}` The domain suffix of the Sealos cluster.
 - `${{ SEALOS_CERT_SECRET_NAME }}` The name of the secret that Sealos uses to store the tls certificate.
+- `${{ SEALOS_SERVICE_ACCOUNT }}` Sealos user's SA.
 
 #### Built in system functions
 - `${{ random(length) }}` generate a random string of length `length`.
+- `${{ base64(string) }}` encode the string `string` into base64 format.
 - TODO: `${{ if() }}` `${{ endif() }}` Conditional rendering.
 
 ## Part Two: `Application Resource File(s)`
@@ -388,11 +390,11 @@ metadata:
   name: ${{ defaults.app_name }}-mongo
 rules:
   - apiGroups:
-      - ''
+      - '*'
     resources:
-      - events
+      - '*'
     verbs:
-      - create
+      - '*'
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -410,7 +412,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: ${{ defaults.app_name }}-mongo
-    namespace: ${{ SEALOS_NAMESPACE}}
 ```
 
 </details>
@@ -487,45 +488,11 @@ metadata:
   name: ${{ defaults.app_name }}-pg
 rules:
   - apiGroups:
-      - ''
+      - '*'
     resources:
-      - events
+      - '*'
     verbs:
-      - create
-  - apiGroups:
-      - ''
-    resources:
-      - configmaps
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
-  - apiGroups:
-      - ''
-    resources:
-      - endpoints
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
-  - apiGroups:
-      - ''
-    resources:
-      - pods
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
+      - '*'
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -543,7 +510,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: ${{ defaults.app_name }}-pg
-    namespace: ${{ SEALOS_NAMESPACE }}
 ```
 
 </details>
@@ -617,11 +583,11 @@ metadata:
   name: ${{ defaults.app_name }}-mysql
 rules:
   - apiGroups:
-      - ''
+      - '*'
     resources:
-      - events
+      - '*'
     verbs:
-      - create
+      - '*'
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -639,7 +605,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: ${{ defaults.app_name }}-mysql
-    namespace: ${{ SEALOS_NAMESPACE }}
 
 ```
 
@@ -728,12 +693,11 @@ metadata:
   name: ${{ defaults.app_name }}-redis
 rules:
   - apiGroups:
-      - ''
+      - '*'
     resources:
-      - events
+      - '*'
     verbs:
-      - create
-
+      - '*'
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -750,7 +714,103 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: ${{ defaults.app_name }}-redis
-    namespace: ${{ SEALOS_NAMESPACE }}
+```
+
+</details>
+
+
+<details>
+
+<summary>Weaviate</summary>
+
+```yaml
+apiVersion: apps.kubeblocks.io/v1alpha1
+kind: Cluster
+metadata:
+  finalizers:
+    - cluster.kubeblocks.io/finalizer
+  labels:
+    clusterdefinition.kubeblocks.io/name: weaviate
+    clusterversion.kubeblocks.io/name: weaviate-1.18.0
+  name: ${{ defaults.app_name }}-weaviate
+spec:
+  affinity:
+    podAntiAffinity: Preferred
+    tenancy: SharedNode
+  clusterDefinitionRef: weaviate
+  clusterVersionRef: weaviate-1.18.0
+  componentSpecs:
+    - componentDefRef: weaviate
+      monitor: false
+      name: weaviate
+      noCreatePDB: false
+      replicas: 1
+      resources:
+        limits:
+          cpu: "1"
+          memory: 1Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      rsmTransformPolicy: ToSts
+      serviceAccountName: ${{ defaults.app_name }}-weaviate
+      volumeClaimTemplates:
+        - name: data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 10Gi
+  monitor: {}
+  resources:
+    cpu: "0"
+    memory: "0"
+  storage:
+    size: "0"
+  terminationPolicy: Delete
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    sealos-db-provider-cr: ${{ defaults.app_name }}-weaviate
+    app.kubernetes.io/instance: ${{ defaults.app_name }}-weaviate
+    app.kubernetes.io/managed-by: kbcli
+  name: ${{ defaults.app_name }}-weaviate
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    sealos-db-provider-cr: ${{ defaults.app_name }}-weaviate
+    app.kubernetes.io/instance: ${{ defaults.app_name }}-weaviate
+    app.kubernetes.io/managed-by: kbcli
+  name: ${{ defaults.app_name }}-weaviate
+rules:
+  - apiGroups:
+      - '*'
+    resources:
+      - '*'
+    verbs:
+      - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    sealos-db-provider-cr: ${{ defaults.app_name }}-weaviate
+    app.kubernetes.io/instance: ${{ defaults.app_name }}-weaviate
+    app.kubernetes.io/managed-by: kbcli
+  name: ${{ defaults.app_name }}-weaviate
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ${{ defaults.app_name }}-weaviate
+subjects:
+  - kind: ServiceAccount
+    name: ${{ defaults.app_name }}-weaviate
 ```
 
 </details>
@@ -800,3 +860,6 @@ The CRD itself will be migrated according to the format and fields the same of `
 For all resources deployed through the templates, including system resources such as `deploy`, `service`, and custom resources such as `app`, `kb database`, etc., a unified label `cloud.sealos.io/deploy-on-sealos: $app_name` will be added.
 
 Where `app_name` is the name of the application deployed by the user, which is by default a random string, such as `fastgpt-zu1n048s`.
+
+
+

@@ -125,9 +125,11 @@ inputs:
 - `${{ SEALOS_NAMESPACE }}` Sealos 用户部署的命名空间。
 - `${{ SEALOS_CLOUD_DOMAIN }}` Sealos 集群的域名后缀。
 - `${{ SEALOS_CERT_SECRET_NAME }}` Sealos 用于存储 TLS 证书的 secret 名称。
+- `${{ SEALOS_SERVICE_ACCOUNT }}` Sealos 用户的 SA。
 
 #### 内置系统函数
 - `${{ random(length) }}` 生成长度为 `length` 的随机字符串。
+- `${{ base64(string) }}` 将字符串 `string` 编码成 base64 格式。
 - TODO: `${{ if() }}` `${{ endif() }}` 条件渲染。
 
 ## 第二部分：`应用程序资源文件`
@@ -410,11 +412,11 @@ metadata:
   name: ${{ defaults.app_name }}-mongo
 rules:
   - apiGroups:
-      - ''
+      - '*'
     resources:
-      - events
+      - '*'
     verbs:
-      - create
+      - '*'
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -432,7 +434,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: ${{ defaults.app_name }}-mongo
-    namespace: ${{ SEALOS_NAMESPACE}}
 ```
 
 </details>
@@ -509,46 +510,11 @@ metadata:
   name: ${{ defaults.app_name }}-pg
 rules:
   - apiGroups:
-      - ''
+      - '*'
     resources:
-      - events
+      - '*'
     verbs:
-      - create
-  - apiGroups:
-      - ''
-    resources:
-      - configmaps
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
-  - apiGroups:
-      - ''
-    resources:
-      - endpoints
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-      - delete
-  - apiGroups:
-      - ''
-    resources:
-      - pods
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-
+      - '*'
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -565,7 +531,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: ${{ defaults.app_name }}-pg
-    namespace: ${{ SEALOS_NAMESPACE }}
 ```
 
 </details>
@@ -639,11 +604,11 @@ metadata:
   name: ${{ defaults.app_name }}-mysql
 rules:
   - apiGroups:
-      - ''
+      - '*'
     resources:
-      - events
+      - '*'
     verbs:
-      - create
+      - '*'
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -661,7 +626,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: ${{ defaults.app_name }}-mysql
-    namespace: ${{ SEALOS_NAMESPACE }}
 
 ```
 
@@ -750,11 +714,11 @@ metadata:
   name: ${{ defaults.app_name }}-redis
 rules:
   - apiGroups:
-      - ''
+      - '*'
     resources:
-      - events
+      - '*'
     verbs:
-      - create
+      - '*'
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -772,10 +736,107 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: ${{ defaults.app_name }}-redis
-    namespace: ${{ SEALOS_NAMESPACE }}
 ```
 
 </details>
+
+<details>
+
+<summary>Weaviate</summary>
+
+```yaml
+apiVersion: apps.kubeblocks.io/v1alpha1
+kind: Cluster
+metadata:
+  finalizers:
+    - cluster.kubeblocks.io/finalizer
+  labels:
+    clusterdefinition.kubeblocks.io/name: weaviate
+    clusterversion.kubeblocks.io/name: weaviate-1.18.0
+  name: ${{ defaults.app_name }}-weaviate
+spec:
+  affinity:
+    podAntiAffinity: Preferred
+    tenancy: SharedNode
+  clusterDefinitionRef: weaviate
+  clusterVersionRef: weaviate-1.18.0
+  componentSpecs:
+    - componentDefRef: weaviate
+      monitor: false
+      name: weaviate
+      noCreatePDB: false
+      replicas: 1
+      resources:
+        limits:
+          cpu: "1"
+          memory: 1Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      rsmTransformPolicy: ToSts
+      serviceAccountName: ${{ defaults.app_name }}-weaviate
+      volumeClaimTemplates:
+        - name: data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 10Gi
+  monitor: {}
+  resources:
+    cpu: "0"
+    memory: "0"
+  storage:
+    size: "0"
+  terminationPolicy: Delete
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    sealos-db-provider-cr: ${{ defaults.app_name }}-weaviate
+    app.kubernetes.io/instance: ${{ defaults.app_name }}-weaviate
+    app.kubernetes.io/managed-by: kbcli
+  name: ${{ defaults.app_name }}-weaviate
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    sealos-db-provider-cr: ${{ defaults.app_name }}-weaviate
+    app.kubernetes.io/instance: ${{ defaults.app_name }}-weaviate
+    app.kubernetes.io/managed-by: kbcli
+  name: ${{ defaults.app_name }}-weaviate
+rules:
+  - apiGroups:
+      - '*'
+    resources:
+      - '*'
+    verbs:
+      - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    sealos-db-provider-cr: ${{ defaults.app_name }}-weaviate
+    app.kubernetes.io/instance: ${{ defaults.app_name }}-weaviate
+    app.kubernetes.io/managed-by: kbcli
+  name: ${{ defaults.app_name }}-weaviate
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ${{ defaults.app_name }}-weaviate
+subjects:
+  - kind: ServiceAccount
+    name: ${{ defaults.app_name }}-weaviate
+```
+
+</details>
+
+
 
 当部署数据库时，您只需要关注数据库使用的资源：
 
